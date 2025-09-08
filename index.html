@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Frankenstein</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nosifer&display=swap');
+
+body {
+  font-family: Arial, sans-serif;
+  background:#e6e6e6;
+  margin:0;
+  padding:20px;
+  display:flex;
+  justify-content:center;
+}
+.container{
+  max-width:900px;
+  width:100%;
+  background:#f7f7f7;
+  padding:20px;
+  border-radius:12px;
+}
+h1{
+  text-align:center;
+  color:#7d5ba6;
+  margin-bottom:16px;
+  font-family: 'Nosifer', cursive;
+}
+.timer{
+  font-weight:800;
+  color:#22c55e;
+  margin-bottom:12px;
+}
+.question{
+  font-size:22px;
+  color:#7d5ba6;
+  margin-bottom:16px;
+}
+.options{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.opt{
+  background:#ddd;
+  padding:16px;
+  border-radius:12px;
+  text-align:center;
+  cursor:pointer;
+  font-weight:700;
+  font-family: Arial, sans-serif;
+}
+.opt:hover{background:#c1b3e0;}
+.opt.correct{background:#22c55e; color:#fff; border-color:#22c55e;}
+.opt.wrong{background:#d64545; color:#fff; border-color:#d64545;}
+.explain{
+  margin-top:14px;
+  padding:12px;
+  border-radius:10px;
+  background:#fafafa;
+  border:1px solid #eee;
+  color:#222;
+}
+.explain.correct{border-left:6px solid #22c55e;}
+.explain.wrong{border-left:6px solid #d64545;}
+.controls{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;}
+.btn{
+  background:linear-gradient(90deg,#9ef7a5,#22c55e);
+  color:#08200c;
+  padding:10px 16px;
+  border:none;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+  font-family: Arial, sans-serif;
+}
+.result{margin-top:16px;}
+.review-list{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.review-item{
+  padding:10px;
+  border-radius:8px;
+  background:#fff;
+  border:1px solid #eee;
+  font-family: Arial, sans-serif;
+}
+@media(max-width:820px){.options{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Quiz Frankenstein</h1>
+<div class="timer" id="timer">Tempo restante: 20s</div>
+<div class="question" id="question"></div>
+<div class="options" id="options"></div>
+<div class="explain" id="explanation" style="display:none"></div>
+<div class="controls">
+<button class="btn" id="nextBtn" disabled>Próxima</button>
+</div>
+<div class="result" id="result" style="display:none">
+<h2>Sua pontuação: <span id="score"></span> / 10</h2>
+<div class="review-list" id="reviewList"></div>
+</div>
+</div>
+
+<script>
+const QUESTIONS = [
+  { q:'There ___ a laboratory in Victor Frankenstein’s house.', options:['is','are','was','were'], answer:'is', explanation:'Correto: "There is a laboratory..."'},
+  { q:'There ___ no happiness in Victor after he created the monster.', options:['is','are','was','were'], answer:'is', explanation:'"There is no happiness" mostra ausência de alegria.'},
+  { q:'___ there a monster in the story?', options:['Is','Are','Be','Was'], answer:'Is', explanation:'Pergunta: "Is there a monster?"'},
+  { q:'There ___ many deaths caused by the creature.', options:['is','are','was','were'], answer:'are', explanation:'Correto: "There are many deaths..."'},
+  { q:'There ___ peace in Victor’s heart after the creation.', options:['is','isn’t','are','was'], answer:'isn’t', explanation:'Negativa: "There isn’t peace..."'},
+  { q:'There ___ scenes in the Arctic in the novel.', options:['is','are','was','were'], answer:'are', explanation:'Correto: "There are scenes in the Arctic."'},
+  { q:'There ___ a request from the monster for a companion.', options:['is','are','was','were'], answer:'is', explanation:'"There is a request for a companion."'},
+  { q:'There ___ fear and guilt in Victor’s mind.', options:['is','are','was','were'], answer:'is', explanation:'"There is fear and guilt." usado no singular coletivo.'},
+  { q:'There ___ no way to undo the creation.', options:['is','are','was','were'], answer:'is', explanation:'"There is no way..." mostra impossibilidade.'},
+  { q:'___ there tragic consequences in the story?', options:['Is','Are','Be','Was'], answer:'Are', explanation:'Pergunta plural: "Are there tragic consequences?"'}
+];
+
+let current = 0; 
+let score = 0; 
+let timeLeft = 20; 
+let timer = null; 
+let userAnswers = [];
+
+const qEl = document.getElementById('question'); 
+const optsEl = document.getElementById('options'); 
+const expEl = document.getElementById('explanation'); 
+const nextBtn = document.getElementById('nextBtn'); 
+const timerEl = document.getElementById('timer'); 
+const resultWrap = document.getElementById('result'); 
+const reviewList = document.getElementById('reviewList'); 
+const scoreEl = document.getElementById('score');
+
+function startTimer(){
+  clearInterval(timer);
+  timeLeft = 20;
+  timerEl.textContent = `Tempo restante: ${timeLeft}s`;
+  timer = setInterval(() => {
+    timeLeft--;
+    timerEl.textContent = `Tempo restante: ${timeLeft}s`;
+    if(timeLeft <= 0){
+      clearInterval(timer);
+      submitAnswer(null);
+    }
+  }, 1000);
+}
+
+function renderQuestion(){
+  nextBtn.disabled = true;
+  const q = QUESTIONS[current];
+  qEl.textContent = q.q;
+  optsEl.innerHTML = '';
+  expEl.style.display = 'none';
+  expEl.textContent = '';
+  q.options.forEach(opt => {
+    const b = document.createElement('div');
+    b.className = 'opt';
+    b.textContent = opt;
+    b.onclick = () => submitAnswer(opt);
+    optsEl.appendChild(b);
+  });
+  nextBtn.textContent = (current === QUESTIONS.length - 1) ? 'Finalizar' : 'Próxima';
+  startTimer();
+}
+
+function submitAnswer(sel){
+  clearInterval(timer);
+  const q = QUESTIONS[current];
+  userAnswers[current] = sel;
+  if(sel === q.answer) score++;
+  const buttons = optsEl.querySelectorAll('.opt');
+  buttons.forEach(b => {
+    b.onclick = null;
+    if(b.textContent === q.answer) b.classList.add('correct');
+    if(sel === b.textContent && sel !== q.answer) b.classList.add('wrong');
+  });
+  expEl.textContent = sel === q.answer ? `Acertou — ${q.explanation}` : sel ? `Errou — ${q.explanation}` : `Sem resposta — ${q.explanation}`;
+  expEl.className = 'explain ' + (sel === q.answer ? 'correct' : 'wrong');
+  expEl.style.display = 'block';
+  nextBtn.disabled = false;
+}
+
+nextBtn.onclick = () => {
+  if (nextBtn.textContent === 'Reiniciar') {
+    resetQuiz();
+    return;
+  }
+
+  current++;
+  if (current < QUESTIONS.length) {
+    renderQuestion();
+  } else {
+    showResults();
+  }
+};
+
+function showResults(){
+  resultWrap.style.display = 'block';
+  optsEl.innerHTML = '';
+  qEl.textContent = 'Fim do Quiz!';
+  timerEl.style.display = 'none';
+  scoreEl.textContent = score;
+  reviewList.innerHTML = '';
+  nextBtn.textContent = 'Finalizar';
+
+  for(let i = 0; i < QUESTIONS.length; i++){
+    const item = document.createElement('div');
+    item.className = 'review-item';
+    item.innerHTML = `<strong>Q${i + 1}:</strong> ${QUESTIONS[i].q}<br>
+    Resposta: <strong>${QUESTIONS[i].answer}</strong><br>
+    Você: <strong>${userAnswers[i] || 'Sem resposta'}</strong><br>
+    <em>${QUESTIONS[i].explanation}</em>`;
+    reviewList.appendChild(item);
+  }
+}
+
+function resetQuiz(){
+  current = 0;
+  score = 0;
+  timeLeft = 20;
+  userAnswers = [];
+  resultWrap.style.display = 'none';
+  timerEl.style.display = 'block';
+  nextBtn.textContent = 'Próxima';
+  renderQuestion();
+}
+
+renderQuestion();
+</script>
+
+</body>
+</html>
